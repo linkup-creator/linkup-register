@@ -1,295 +1,85 @@
 
-<!DOCTYPE html>
+<!doctype html>
 <html lang="de">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport"
-        content="width=device-width, initial-scale=1">
-  <title>LINKUP – Account aktivieren</title>
-  <style>
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      min-height: 100vh;
-      background: #080b0a;
-      color: white;
-      font-family: Arial, sans-serif;
-      display: grid;
-      place-items: center;
-      padding: 20px;
-    }
-    .card {
-      width: 100%;
-      max-width: 400px;
-      padding: 30px;
-      border: 1px solid #26342c;
-      border-radius: 20px;
-      background: #111713;
-    }
-    h1 {
-      color: #22ff88;
-      text-align: center;
-      letter-spacing: 3px;
-    }
-    p {
-      color: #b3c0b7;
-      line-height: 1.5;
-    }
-    input, button {
-      width: 100%;
-      padding: 15px;
-      margin-top: 12px;
-      border-radius: 10px;
-      font-size: 16px;
-    }
-    input {
-      background: #090e0b;
-      border: 1px solid #405246;
-      color: white;
-    }
-    button {
-      background: #22ff88;
-      border: none;
-      color: #07130b;
-      font-weight: bold;
-      cursor: pointer;
-    }
-    button:disabled {
-      opacity: .5;
-      cursor: not-allowed;
-    }
-    #message {
-      margin-top: 20px;
-      font-size: 14px;
-    }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LINKUP – Registrierung</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:#080b0a;color:#fff;font-family:Arial,sans-serif;display:grid;place-items:center;padding:20px}
+.card{width:100%;max-width:420px;padding:30px;border:1px solid #26342c;border-radius:20px;background:#111713}
+h1{color:#22ff88;text-align:center;letter-spacing:3px}
+p{color:#b3c0b7;line-height:1.5}
+label{display:block;margin-top:18px}
+input,button{width:100%;padding:15px;margin-top:9px;border-radius:10px;font-size:16px}
+input{background:#090e0b;border:1px solid #405246;color:white}
+button{background:#22ff88;border:0;color:#07130b;font-weight:bold;cursor:pointer;margin-top:22px}
+button:disabled{opacity:.55;cursor:wait}
+#message{white-space:pre-wrap}
+a{color:#22ff88}
+</style>
 </head>
 <body>
-  <main class="card">
-    <h1>LINKUP</h1>
-    <h2>Account aktivieren</h2>
-    <p id="description">
-      Einladung wird geprüft ...
-    </p>
+<main class="card">
+<h1>LINKUP</h1>
+<h2>Einladung einlösen</h2>
+<p>Gib deine E-Mail-Adresse und deinen persönlichen Invite-Code ein.</p>
+<form id="register">
+<label for="email">E-Mail-Adresse</label>
+<input id="email" type="email" autocomplete="email" required maxlength="254">
+<label for="code">Invite-Code</label>
+<input id="code" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="LINKUP-..." required pattern="LINKUP-[A-Za-z0-9]+">
+<button id="submit" type="submit">Einladung anfordern</button>
+</form>
+<p id="message" role="status" aria-live="polite"></p>
+</main>
+<script>
+const params=new URLSearchParams(location.search);
+const fragment=new URLSearchParams(location.hash.slice(1));
 
-    <form id="form" hidden>
-      <input
-        id="password"
-        type="password"
-        minlength="12"
-        placeholder="Passwort (mind. 12 Zeichen)"
-        autocomplete="new-password"
-        required
-      >
-      <input
-        id="confirm"
-        type="password"
-        placeholder="Passwort wiederholen"
-        autocomplete="new-password"
-        required
-      >
-      <button id="submit" type="submit">
-        Account aktivieren
-      </button>
-    </form>
+if(params.has('code')||params.has('token_hash')||params.has('error')||fragment.has('access_token')||fragment.has('error')){
+  location.replace('aktivieren.html'+location.search+location.hash);
+}
 
-    <p id="message" role="status"></p>
-  </main>
+const endpoint='https://xwlgfmtywsxrjilaiakv.supabase.co/functions/v1/linkup-register';
+const form=document.getElementById('register');
+const msg=document.getElementById('message');
+const button=document.getElementById('submit');
 
-  <script type="module">
-    import { createClient } from
-      "https://esm.sh/@supabase/supabase-js@2";
+form.addEventListener('submit',async e=>{
+ e.preventDefault();
+ msg.textContent='';
+ const email=document.getElementById('email').value.trim().toLowerCase();
+ const code=document.getElementById('code').value.trim().toUpperCase();
 
-    const SUPABASE_URL =
-      "https://xwlgfmtywsxrjilaiakv.supabase.co";
+ if(!/^LINKUP-[A-Z0-9]+$/.test(code)){
+   msg.textContent='Ungültiges Invite-Code-Format.';
+   return;
+ }
 
-    // Öffentlicher Publishable Key.
-    const SUPABASE_KEY = "sb_publishable_g19cCupWEemwYs99qi7itw__FxoiDvy";
+ button.disabled=true;
 
-    const description = document.getElementById("description");
-    const form = document.getElementById("form");
-    const message = document.getElementById("message");
-    const button = document.getElementById("submit");
+ try{
+  const res=await fetch(endpoint,{
+   method:'POST',
+   headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({email,code})
+  });
 
-    const supabase = createClient(
-      SUPABASE_URL,
-      SUPABASE_KEY,
-      {
-        auth: {
-          detectSessionInUrl: false,
-          persistSession: false
-        }
-      }
-    );
+  const data=await res.json().catch(()=>({}));
 
-    const hash = new URLSearchParams(
-      location.hash.slice(1)
-    );
-    const query = new URLSearchParams(
-      location.search
-    );
+  if(!res.ok||!data.success)
+    throw new Error(data.error||'Die Einladung konnte nicht angefordert werden.');
 
-    const hasInviteData =
-      hash.has("access_token") ||
-      query.has("code") ||
-      query.has("token_hash") ||
-      hash.has("error") ||
-      query.has("error");
+  form.hidden=true;
+  msg.textContent='Die Einladungs-E-Mail wurde angefordert. Prüfe dein Postfach und gegebenenfalls den Spam-Ordner.';
 
-    function clearLink() {
-      history.replaceState(
-        null, "",
-        location.pathname
-      );
-    }
-
-    function showError(detail) {
-      form.hidden = true;
-      description.textContent =
-        "Einladung konnte nicht aktiviert werden.";
-
-      message.textContent = detail ||
-        "Der Link ist ungültig, abgelaufen oder wurde bereits verwendet. Bitte fordere eine neue Einladung an.";
-    }
-
-    try {
-      const urlError =
-        hash.get("error_description") ||
-        query.get("error_description") ||
-        hash.get("error") ||
-        query.get("error");
-
-      if (urlError) {
-        throw new Error(
-          decodeURIComponent(
-            urlError.replace(/\+/g, " ")
-          )
-        );
-      }
-
-      let authError = null;
-
-      if (
-        hash.has("access_token") &&
-        hash.has("refresh_token")
-      ) {
-        const result =
-          await supabase.auth.setSession({
-            access_token: hash.get("access_token"),
-            refresh_token: hash.get("refresh_token")
-          });
-
-        authError = result.error;
-
-      } else if (query.has("code")) {
-        const result =
-          await supabase.auth.exchangeCodeForSession(
-            query.get("code")
-          );
-
-        authError = result.error;
-
-      } else if (query.has("token_hash")) {
-        const result =
-          await supabase.auth.verifyOtp({
-            token_hash: query.get("token_hash"),
-            type: "invite"
-          });
-
-        authError = result.error;
-
-      } else {
-        throw new Error(
-          "Kein Einladungsnachweis im Link gefunden. Öffne den aktuellen Link direkt aus deiner Einladungs-E-Mail."
-        );
-      }
-
-      clearLink();
-
-      if (authError) {
-        throw authError;
-      }
-
-      const {
-        data: userData,
-        error: userError
-      } = await supabase.auth.getUser();
-
-      if (userError || !userData.user) {
-        throw userError ||
-          new Error(
-            "Keine gültige Anmeldung gefunden."
-          );
-      }
-
-      description.textContent =
-        "Lege jetzt dein LINKUP-Passwort fest.";
-
-      form.hidden = false;
-
-      form.addEventListener(
-        "submit",
-        async (e) => {
-          e.preventDefault();
-          message.textContent = "";
-
-          const password =
-            document.getElementById("password").value;
-
-          const confirm =
-            document.getElementById("confirm").value;
-
-          if (password !== confirm) {
-            message.textContent =
-              "Die Passwörter stimmen nicht überein.";
-            return;
-          }
-
-          if (
-            password.length < 12 ||
-            !/[A-Za-z]/.test(password) ||
-            !/[0-9]/.test(password)
-          ) {
-            message.textContent =
-              "Mindestens 12 Zeichen, Buchstaben und Zahlen.";
-            return;
-          }
-
-          button.disabled = true;
-
-          const { error } =
-            await supabase.auth.updateUser({
-              password
-            });
-
-          if (error) {
-            message.textContent =
-              "Passwort konnte nicht gespeichert werden: " +
-              error.message;
-
-            button.disabled = false;
-            return;
-          }
-
-          form.hidden = true;
-
-          description.textContent =
-            "Passwort erfolgreich gespeichert.";
-
-          message.textContent =
-            "Die endgültige LINKUP-Freischaltung wird separat geprüft.";
-
-          await supabase.auth.signOut();
-        }
-      );
-
-    } catch (error) {
-      if (hasInviteData) {
-        clearLink();
-      }
-      showError(error.message);
-    }
-  </script>
+ }catch(err){
+  msg.textContent=err.message||'Verbindung fehlgeschlagen. Bitte später erneut versuchen.';
+  button.disabled=false;
+ }
+});
+</script>
 </body>
 </html>
-
